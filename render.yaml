@@ -1,0 +1,35 @@
+# Render Blueprint - deploys the ShareFund backend as a Node.js web service.
+# The database is NOT created here: it lives at a separate PostgreSQL provider
+# (for example Supabase), and its connection string goes into DATABASE_URL.
+services:
+  - type: web
+    name: sharefund-server
+    runtime: node
+    plan: free
+    # devDependencies are needed for the build (TypeScript), so they are installed too
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    # applies pending database migrations, then starts the server
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # PostgreSQL connection string - typed by hand in the Render dashboard
+      - key: DATABASE_URL
+        sync: false
+      # Render creates a long random secret by itself
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 2h
+      # The address of the React site, for example https://my-client.onrender.com
+      - key: CORS_ORIGIN
+        sync: false
+      # Set to "true" (and choose SEED_DEMO_PASSWORD) to create demo users on start
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: SEED_DEMO_PASSWORD
+        sync: false

@@ -1,0 +1,141 @@
+// ShareFund - database schema (PostgreSQL)
+// All money values are stored as whole agorot (1 ILS = 100 agorot).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  manager
+  member
+}
+
+enum TransactionType {
+  deposit
+  withdraw
+}
+
+enum TransactionCategory {
+  meeting
+  equipment
+  general
+  other
+}
+
+model User {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  email              String   @unique
+  passwordHash       String   @map("password_hash")
+  // true while the user still has a temporary password given by a manager
+  mustChangePassword Boolean  @default(false) @map("must_change_password")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  createdGroups       Group[]            @relation("GroupCreator")
+  memberships         GroupMembership[]
+  transactions        Transaction[]      @relation("TransactionUser")
+  recordedTransactions Transaction[]     @relation("TransactionCreator")
+  sentMessages        Message[]
+  receivedMessages    MessageRecipient[]
+
+  @@map("users")
+}
+
+model Group {
+  id          Int       @id @default(autoincrement())
+  name        String
+  createdById Int       @map("created_by")
+  // false = closed group, read-only
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  closedAt    DateTime? @map("closed_at")
+
+  createdBy    User              @relation("GroupCreator", fields: [createdById], references: [id])
+  memberships  GroupMembership[]
+  transactions Transaction[]
+  messages     Message[]
+
+  @@map("groups")
+}
+
+model GroupMembership {
+  id      Int  @id @default(autoincrement())
+  userId  Int  @map("user_id")
+  groupId Int  @map("group_id")
+  role    Role @default(member)
+  // agorot. positive = credit, negative = debt
+  balance  Int      @default(0)
+  // false = the member left / was removed (soft delete)
+  isActive Boolean  @default(true) @map("is_active")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId])
+  @@index([groupId])
+  @@map("group_memberships")
+}
+
+model Transaction {
+  id      Int @id @default(autoincrement())
+  groupId Int @map("group_id")
+  // the member the transaction is registered on
+  userId Int @map("user_id")
+  // who recorded it (the member, or the manager on the member's behalf)
+  createdById Int             @map("created_by")
+  // agorot, always positive - the direction is set by `type`
+  amount Int
+  type   TransactionType
+  // shared withdraw = a group expense, split equally between all active members
+  isShared Boolean             @default(false) @map("is_shared")
+  category TransactionCategory @default(general)
+  note     String              @default("")
+  // fund balance (agorot) right after this transaction
+  fundBalanceAfter Int      @map("fund_balance_after")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  group     Group @relation(fields: [groupId], references: [id])
+  user      User  @relation("TransactionUser", fields: [userId], references: [id])
+  createdBy User  @relation("TransactionCreator", fields: [createdById], references: [id])
+
+  @@index([groupId, createdAt])
+  @@index([userId])
+  @@map("transactions")
+}
+
+model Message {
+  id       Int    @id @default(autoincrement())
+  groupId  Int    @map("group_id")
+  senderId Int    @map("sender_id")
+  content  String
+  // true = the manager sent it to the whole group
+  toAll     Boolean  @default(false) @map("to_all")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  group      Group              @relation(fields: [groupId], references: [id])
+  sender     User               @relation(fields: [senderId], references: [id])
+  recipients MessageRecipient[]
+
+  @@index([groupId, createdAt])
+  @@map("messages")
+}
+
+model MessageRecipient {
+  messageId Int       @map("message_id")
+  userId    Int       @map("user_id")
+  // null = not opened yet
+  readAt    DateTime? @map("read_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([messageId, userId])
+  @@index([userId])
+  @@map("message_recipients")
+}

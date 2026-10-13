@@ -1,0 +1,2906 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ShareFund API",
+    "version": "1.0.0",
+    "description": "שרת לניהול קופה משותפת של קבוצה.\n\n**איך מתחברים כאן:** מריצים את `POST /api/auth/login`, מעתיקים את ה-`token` מהתשובה,\nלוחצים על **Authorize** למעלה ומדביקים אותו. מעכשיו כל הקריאות נשלחות עם הטוקן.\n\n**סכומים:** כל הסכומים ב-API הם בשקלים, עם עד שתי ספרות אחרי הנקודה.\n\n**שגיאות:** כל שגיאה חוזרת במבנה `{ \"error\": { \"code\", \"message\", \"details\"? } }`.\n401 = אין טוקן תקין. 403 = מחובר, אבל אין הרשאה לפעולה."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "השרת הנוכחי"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "בדיקת תקינות"
+    },
+    {
+      "name": "Auth",
+      "description": "התחברות ופרטי המשתמש"
+    },
+    {
+      "name": "Groups",
+      "description": "קבוצות"
+    },
+    {
+      "name": "Members",
+      "description": "חברי הקבוצה"
+    },
+    {
+      "name": "Transactions",
+      "description": "הפקדות, משיכות והיסטוריה"
+    },
+    {
+      "name": "Messages",
+      "description": "הודעות בין המנהל לחברים"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "הטוקן שמתקבל מ-POST /api/auth/login"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "מזהה קבוע באנגלית, למשל VALIDATION_ERROR"
+              },
+              "message": {
+                "type": "string",
+                "description": "הסבר בעברית שאפשר להציג למשתמש"
+              },
+              "details": {
+                "description": "פירוט נוסף, לא תמיד קיים"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "description": "true = יש להחליף סיסמה זמנית לפני כל פעולה אחרת"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "mustChangePassword"
+        ]
+      },
+      "Group": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "false = קבוצה סגורה, לצפייה בלבד"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive",
+          "createdAt",
+          "closedAt"
+        ]
+      },
+      "MyGroup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "member"
+            ]
+          },
+          "myBalance": {
+            "type": "number",
+            "description": "היתרה שלי בקבוצה. שלילי = חוב"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive",
+          "createdAt",
+          "closedAt",
+          "role",
+          "myBalance"
+        ]
+      },
+      "Dashboard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "managerName": {
+            "type": "string"
+          },
+          "membersCount": {
+            "type": "integer",
+            "description": "מספר החברים הפעילים"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "member"
+            ]
+          },
+          "myBalance": {
+            "type": "number",
+            "description": "היתרה שלי. שלילי = חוב"
+          },
+          "fundBalance": {
+            "type": "number",
+            "description": "יתרת הקופה. יכולה להיות שלילית"
+          },
+          "totalDeposited": {
+            "type": "number",
+            "description": "סך כל ההפקדות מפתיחת הקבוצה"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isActive",
+          "createdAt",
+          "closedAt",
+          "managerName",
+          "membersCount",
+          "role",
+          "myBalance",
+          "fundBalance",
+          "totalDeposited"
+        ]
+      },
+      "MemberForManager": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "member"
+            ]
+          },
+          "balance": {
+            "type": "number",
+            "description": "שלילי = חוב"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "email",
+          "role",
+          "balance",
+          "joinedAt"
+        ]
+      },
+      "MemberForMember": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "member"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "role"
+        ]
+      },
+      "AddedMember": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "isNewUser": {
+            "type": "boolean",
+            "description": "false = המייל כבר היה רשום, והשם והסיסמה שנשלחו לא נשמרו"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "member"
+            ]
+          },
+          "balance": {
+            "type": "number",
+            "description": "חבר חדש מתחיל מ-0"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "email",
+          "isNewUser",
+          "role",
+          "balance"
+        ]
+      },
+      "Transaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "deposit",
+              "withdraw"
+            ]
+          },
+          "amount": {
+            "type": "number",
+            "description": "תמיד חיובי"
+          },
+          "isShared": {
+            "type": "boolean",
+            "description": "true = משיכה משותפת שהתחלקה בין כל החברים"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "meeting",
+              "equipment",
+              "general",
+              "other"
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "fundBalanceAfter": {
+            "type": "number",
+            "description": "יתרת הקופה אחרי התנועה"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isMine": {
+            "type": "boolean"
+          },
+          "userId": {
+            "type": "integer",
+            "description": "null לחבר רגיל בתנועות של אחרים",
+            "nullable": true
+          },
+          "userName": {
+            "type": "string",
+            "description": "null לחבר רגיל בתנועות של אחרים",
+            "nullable": true
+          },
+          "recordedByName": {
+            "type": "string",
+            "description": "מי רשם את התנועה. null לחבר רגיל בתנועות של אחרים",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "amount",
+          "isShared",
+          "category",
+          "note",
+          "fundBalanceAfter",
+          "createdAt",
+          "isMine",
+          "userId",
+          "userName",
+          "recordedByName"
+        ]
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "content": {
+            "type": "string"
+          },
+          "toAll": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "received"
+            ]
+          },
+          "sender": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "isRead": {
+            "type": "boolean",
+            "description": "להודעה שקיבלתי: האם פתחתי אותה. null להודעה ששלחתי",
+            "nullable": true
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "readAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "userId",
+                "name",
+                "readAt"
+              ]
+            },
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "toAll",
+          "createdAt",
+          "direction",
+          "sender",
+          "isRead",
+          "recipients"
+        ]
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "אין טוקן, או שהטוקן לא תקין או פג תוקף",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "TOKEN_MISSING",
+                "message": "נדרשת התחברות"
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "מחובר, אבל אין הרשאה: לא חבר בקבוצה (NOT_A_MEMBER), לא מנהל (MANAGER_ONLY), או סיסמה זמנית שלא הוחלפה (PASSWORD_CHANGE_REQUIRED)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "MANAGER_ONLY",
+                "message": "הפעולה מותרת למנהל הקבוצה בלבד"
+              }
+            }
+          }
+        }
+      },
+      "GroupNotFound": {
+        "description": "הקבוצה לא קיימת",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "GROUP_NOT_FOUND",
+                "message": "הקבוצה לא נמצאה"
+              }
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "הנתונים שנשלחו לא תקינים",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "הנתונים שנשלחו אינם תקינים",
+                "details": [
+                  {
+                    "field": "amount",
+                    "message": "הסכום חייב להיות גדול מ-0"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "GroupClosed": {
+        "description": "הקבוצה סגורה",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "GROUP_CLOSED",
+                "message": "הקבוצה סגורה ואי אפשר לבצע בה פעולות"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "בדיקת תקינות השרת ומסד הנתונים",
+        "responses": {
+          "200": {
+            "description": "השרת והמסד פעילים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "database": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "database"
+                  ]
+                },
+                "example": {
+                  "status": "ok",
+                  "database": "ok"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "אין חיבור למסד הנתונים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "database": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "database"
+                  ]
+                },
+                "example": {
+                  "status": "error",
+                  "database": "unreachable"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "התחברות עם מייל וסיסמה",
+        "description": "מחזיר טוקן JWT. אם `mustChangePassword` הוא true, יש להחליף סיסמה לפני כל פעולה אחרת.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 72
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              },
+              "example": {
+                "email": "dana@example.com",
+                "password": "MyPass123"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "התחברות הצליחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "user"
+                  ]
+                },
+                "example": {
+                  "token": "eyJhbGciOiJIUzI1NiIs...",
+                  "user": {
+                    "id": 1,
+                    "name": "דנה לוי",
+                    "email": "dana@example.com",
+                    "mustChangePassword": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "description": "מייל או סיסמה שגויים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_CREDENTIALS",
+                    "message": "המייל או הסיסמה שגויים"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "פרטי המשתמש המחובר",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "המשתמש המחובר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ]
+                },
+                "example": {
+                  "user": {
+                    "id": 1,
+                    "name": "דנה לוי",
+                    "email": "dana@example.com",
+                    "mustChangePassword": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "עדכון השם של המשתמש המחובר",
+        "description": "המייל הוא מזהה הכניסה ואי אפשר לשנות אותו.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              },
+              "example": {
+                "name": "דנה לוי-כהן"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "השם עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ]
+                },
+                "example": {
+                  "user": {
+                    "id": 1,
+                    "name": "דנה לוי-כהן",
+                    "email": "dana@example.com",
+                    "mustChangePassword": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "שינוי סיסמה",
+        "description": "משמש גם להחלפת סיסמה זמנית בכניסה הראשונה.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 72
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 72
+                  }
+                },
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ]
+              },
+              "example": {
+                "currentPassword": "MyPass123",
+                "newPassword": "MyNewPass2026"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הסיסמה הוחלפה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  },
+                  "required": [
+                    "user"
+                  ]
+                },
+                "example": {
+                  "user": {
+                    "id": 1,
+                    "name": "דנה לוי",
+                    "email": "dana@example.com",
+                    "mustChangePassword": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "נתונים לא תקינים (VALIDATION_ERROR) או סיסמה נוכחית שגויה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "WRONG_CURRENT_PASSWORD",
+                    "message": "הסיסמה הנוכחית שגויה"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/groups": {
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "יצירת קבוצה חדשה",
+        "description": "מותר גם לאורח וגם למשתמש מחובר.\n- **מחובר:** הוא המנהל. השדה `manager` לא נדרש.\n- **אורח:** חובה לשלוח `manager`. נוצר לו משתמש, והתשובה כוללת גם `token`.\n\nב-`members` שולחים את החברים **חוץ מהמנהל**, לפחות 2.\nחבר שהמייל שלו כבר רשום רק משויך לקבוצה (`isNewUser: false`) והסיסמה שלו לא משתנה.",
+        "security": [
+          {},
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "groupName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "manager": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 60
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "password": {
+                        "type": "string",
+                        "minLength": 6,
+                        "maxLength": 72
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "email",
+                      "password"
+                    ]
+                  },
+                  "members": {
+                    "minItems": 2,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 60
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "password": {
+                          "type": "string",
+                          "minLength": 6,
+                          "maxLength": 72
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "email",
+                        "password"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "groupName",
+                  "members"
+                ]
+              },
+              "example": {
+                "groupName": "קופת ועד הכיתה",
+                "manager": {
+                  "name": "דנה לוי",
+                  "email": "dana@example.com",
+                  "password": "MyPass123"
+                },
+                "members": [
+                  {
+                    "name": "יוסי כהן",
+                    "email": "yossi@example.com",
+                    "password": "Temp1234"
+                  },
+                  {
+                    "name": "מיכל אברהם",
+                    "email": "michal@example.com",
+                    "password": "Temp1234"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הקבוצה נוצרה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "group": {
+                      "$ref": "#/components/schemas/Group"
+                    },
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "isNewUser": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "name",
+                          "email",
+                          "isNewUser"
+                        ]
+                      }
+                    },
+                    "token": {
+                      "type": "string",
+                      "description": "רק כשאורח יצר את הקבוצה"
+                    }
+                  },
+                  "required": [
+                    "group",
+                    "members"
+                  ]
+                },
+                "example": {
+                  "group": {
+                    "id": 1,
+                    "name": "קופת ועד הכיתה",
+                    "isActive": true,
+                    "createdAt": "2026-09-20T08:00:00.000Z",
+                    "closedAt": null
+                  },
+                  "members": [
+                    {
+                      "userId": 2,
+                      "name": "יוסי כהן",
+                      "email": "yossi@example.com",
+                      "isNewUser": true
+                    },
+                    {
+                      "userId": 3,
+                      "name": "מיכל אברהם",
+                      "email": "michal@example.com",
+                      "isNewUser": true
+                    }
+                  ],
+                  "token": "eyJhbGciOiJIUzI1NiIs..."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "נתונים לא תקינים: פחות מ-3 חברים, מייל כפול (VALIDATION_ERROR), חסרים פרטי מנהל (MANAGER_REQUIRED) או מייל המנהל ברשימת החברים (MANAGER_IN_MEMBERS)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "הנתונים שנשלחו אינם תקינים",
+                    "details": [
+                      {
+                        "field": "members",
+                        "message": "קבוצה חייבת לכלול לפחות 3 חברים (המנהל ועוד 2)"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "נשלח טוקן לא תקין",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "TOKEN_INVALID",
+                    "message": "הטוקן אינו תקין או שפג תוקפו"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "המשתמש המחובר עדיין לא החליף סיסמה זמנית",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "PASSWORD_CHANGE_REQUIRED",
+                    "message": "יש להחליף את הסיסמה הזמנית לפני המשך השימוש"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "אורח ניסה ליצור קבוצה עם מייל מנהל שכבר רשום",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "EMAIL_EXISTS_LOGIN_REQUIRED",
+                    "message": "המייל כבר רשום במערכת. יש להתחבר ואז ליצור את הקבוצה"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "הקבוצות שלי",
+        "description": "כל הקבוצות שאני חבר פעיל בהן, כולל קבוצות סגורות, עם התפקיד והיתרה שלי בכל אחת.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת הקבוצות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MyGroup"
+                      }
+                    }
+                  },
+                  "required": [
+                    "groups"
+                  ]
+                },
+                "example": {
+                  "groups": [
+                    {
+                      "id": 1,
+                      "name": "קופת ועד הכיתה",
+                      "isActive": true,
+                      "createdAt": "2026-09-20T08:00:00.000Z",
+                      "closedAt": null,
+                      "role": "manager",
+                      "myBalance": 8.63
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}": {
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "האזור האישי של קבוצה",
+        "description": "יתרת הקופה, היתרה שלי והתפקיד שלי. מותר לכל חבר פעיל בקבוצה.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "נתוני הקבוצה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "group": {
+                      "$ref": "#/components/schemas/Dashboard"
+                    }
+                  },
+                  "required": [
+                    "group"
+                  ]
+                },
+                "example": {
+                  "group": {
+                    "id": 1,
+                    "name": "קופת ועד הכיתה",
+                    "isActive": true,
+                    "createdAt": "2026-09-20T08:00:00.000Z",
+                    "closedAt": null,
+                    "managerName": "דנה לוי",
+                    "membersCount": 4,
+                    "role": "manager",
+                    "myBalance": 8.63,
+                    "fundBalance": 14.5,
+                    "totalDeposited": 180
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/close": {
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "סגירת הקבוצה (מנהל בלבד)",
+        "description": "כשכל היתרות 0 הקבוצה נסגרת מיד.\nכשיש יתרות שאינן 0 חוזרת שגיאה 409 `BALANCES_NOT_ZERO` עם רשימת החברים.\nאחרי שהמנהל מאשר, שולחים שוב עם `force: true`.\nקבוצה סגורה נשארת לצפייה בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "force": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                }
+              },
+              "example": {
+                "force": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הקבוצה נסגרה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "group": {
+                      "$ref": "#/components/schemas/Group"
+                    }
+                  },
+                  "required": [
+                    "group"
+                  ]
+                },
+                "example": {
+                  "group": {
+                    "id": 1,
+                    "name": "קופת ועד הכיתה",
+                    "isActive": false,
+                    "createdAt": "2026-09-20T08:00:00.000Z",
+                    "closedAt": "2026-10-13T10:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          },
+          "409": {
+            "description": "יש יתרות שאינן 0 ולא נשלח force (BALANCES_NOT_ZERO), או שהקבוצה כבר סגורה (GROUP_CLOSED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "BALANCES_NOT_ZERO",
+                    "message": "יש חברים שהיתרה שלהם אינה 0. לסגור בכל זאת?",
+                    "details": {
+                      "fundBalance": -30,
+                      "members": [
+                        {
+                          "userId": 4,
+                          "name": "אבי מזרחי",
+                          "balance": -30
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/leave": {
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "יציאה מהקבוצה (חבר רגיל בלבד)",
+        "description": "מותר רק כשהיתרה שלי 0 וכשיישארו בקבוצה לפחות 3 חברים. מנהל לא יכול לצאת.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "יצאת מהקבוצה"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          },
+          "409": {
+            "description": "יתרה שאינה 0 (BALANCE_NOT_ZERO), פחות מ-3 חברים (MIN_MEMBERS) או קבוצה סגורה (GROUP_CLOSED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "BALANCE_NOT_ZERO",
+                    "message": "יציאה או הסרה מהקבוצה אפשריות רק כשיתרת החבר היא 0",
+                    "details": {
+                      "balance": -11.37
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/members": {
+      "get": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "רשימת חברי הקבוצה",
+        "description": "התשובה תלויה בתפקיד:\n- **מנהל** מקבל מזהה, שם, מייל, תפקיד ויתרה.\n- **חבר** מקבל שם ותפקיד בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "חיפוש לפי שם (למנהל גם לפי מייל)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "balanceStatus",
+            "in": "query",
+            "required": false,
+            "description": "מנהל בלבד: סינון לפי מצב היתרה",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "debt",
+                "zero",
+                "credit"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת החברים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "members": {
+                      "oneOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/MemberForManager"
+                          }
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/MemberForMember"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "members"
+                  ]
+                },
+                "example": {
+                  "members": [
+                    {
+                      "userId": 1,
+                      "name": "דנה לוי",
+                      "email": "dana@example.com",
+                      "role": "manager",
+                      "balance": 8.63,
+                      "joinedAt": "2026-09-20T08:00:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "הוספת חבר לקבוצה (מנהל בלבד)",
+        "description": "חבר חדש מתחיל מיתרה 0 ומקבל סיסמה זמנית. מייל שכבר רשום רק משויך לקבוצה. חבר שהוסר בעבר מופעל מחדש.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 60
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 72
+                  }
+                },
+                "required": [
+                  "name",
+                  "email",
+                  "password"
+                ]
+              },
+              "example": {
+                "name": "נועה פרץ",
+                "email": "noa@example.com",
+                "password": "Temp1234"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "החבר נוסף",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "member": {
+                      "$ref": "#/components/schemas/AddedMember"
+                    }
+                  },
+                  "required": [
+                    "member"
+                  ]
+                },
+                "example": {
+                  "member": {
+                    "userId": 5,
+                    "name": "נועה פרץ",
+                    "email": "noa@example.com",
+                    "isNewUser": true,
+                    "role": "member",
+                    "balance": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          },
+          "409": {
+            "description": "כבר חבר בקבוצה (ALREADY_MEMBER) או קבוצה סגורה (GROUP_CLOSED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "ALREADY_MEMBER",
+                    "message": "המשתמש כבר חבר בקבוצה"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "הסרת חבר מהקבוצה (מנהל בלבד)",
+        "description": "מחיקה רכה: התנועות של החבר נשארות בהיסטוריה. מותר רק כשיתרת החבר 0 וכשיישארו לפחות 3 חברים.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המשתמש להסרה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "החבר הוסר"
+          },
+          "400": {
+            "description": "ניסיון להסיר את המנהל",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "CANNOT_REMOVE_MANAGER",
+                    "message": "אי אפשר להסיר את מנהל הקבוצה"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "הקבוצה לא קיימת (GROUP_NOT_FOUND) או שהחבר לא בקבוצה (MEMBER_NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "MEMBER_NOT_FOUND",
+                    "message": "החבר לא נמצא בקבוצה"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "יתרה שאינה 0 (BALANCE_NOT_ZERO), פחות מ-3 חברים (MIN_MEMBERS) או קבוצה סגורה (GROUP_CLOSED)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "MIN_MEMBERS",
+                    "message": "בקבוצה חייבים להישאר לפחות 3 חברים"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/members/{userId}/reset-password": {
+      "post": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "איפוס סיסמה זמנית לחבר (מנהל בלבד)",
+        "description": "החבר יידרש להחליף את הסיסמה בכניסה הבאה. הסיסמה משותפת לכל הקבוצות של החבר.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המשתמש",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 72
+                  }
+                },
+                "required": [
+                  "newPassword"
+                ]
+              },
+              "example": {
+                "newPassword": "Temp5678"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "הסיסמה אופסה"
+          },
+          "400": {
+            "description": "נתונים לא תקינים (VALIDATION_ERROR) או ניסיון לאפס לעצמי (USE_CHANGE_PASSWORD)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "USE_CHANGE_PASSWORD",
+                    "message": "כדי לשנות את הסיסמה שלך יש להשתמש בשינוי סיסמה"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "החבר לא בקבוצה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "MEMBER_NOT_FOUND",
+                    "message": "החבר לא נמצא בקבוצה"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/GroupClosed"
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/transactions": {
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "היסטוריית התנועות של הקופה",
+        "description": "התשובה תלויה בתפקיד:\n- **מנהל** רואה בכל תנועה את שם החבר.\n- **חבר** רואה שם רק בתנועות שלו. בתנועות של אחרים `userId`, `userName` ו-`recordedByName` הם null.\n\nב-`summary` חוזרים תמיד סך כל ההפקדות ויתרת הקופה, בלי קשר לסינון.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "חיפוש בהערה (למנהל גם בשם החבר)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "סוג התנועה",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "deposit",
+                "withdraw"
+              ]
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "קטגוריה",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "meeting",
+                "equipment",
+                "general",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "description": "מנהל בלבד: תנועות של חבר מסוים",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "mine",
+            "in": "query",
+            "required": false,
+            "description": "רק התנועות שלי",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "מתאריך (כולל), למשל 2026-10-01",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "עד תאריך (כולל)",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "סדר המיון",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "oldest"
+              ],
+              "default": "newest"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "מספר העמוד",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "description": "תנועות בעמוד",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "התנועות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "totalDeposited": {
+                          "type": "number",
+                          "description": "סך כל ההפקדות"
+                        },
+                        "fundBalance": {
+                          "type": "number",
+                          "description": "יתרת הקופה"
+                        }
+                      },
+                      "required": [
+                        "totalDeposited",
+                        "fundBalance"
+                      ]
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "pageSize": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "מספר התנועות שעונות על הסינון"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Transaction"
+                      }
+                    }
+                  },
+                  "required": [
+                    "summary",
+                    "page",
+                    "pageSize",
+                    "total",
+                    "items"
+                  ]
+                },
+                "example": {
+                  "summary": {
+                    "totalDeposited": 180,
+                    "fundBalance": 14.5
+                  },
+                  "page": 1,
+                  "pageSize": 50,
+                  "total": 2,
+                  "items": [
+                    {
+                      "id": 12,
+                      "type": "deposit",
+                      "amount": 50,
+                      "isShared": false,
+                      "category": "meeting",
+                      "note": "גבייה למסיבת סוף שנה",
+                      "fundBalanceAfter": 130,
+                      "createdAt": "2026-10-01T09:30:00.000Z",
+                      "isMine": true,
+                      "userId": 1,
+                      "userName": "דנה לוי",
+                      "recordedByName": "דנה לוי"
+                    },
+                    {
+                      "id": 13,
+                      "type": "deposit",
+                      "amount": 50,
+                      "isShared": false,
+                      "category": "meeting",
+                      "note": "גבייה למסיבת סוף שנה",
+                      "fundBalanceAfter": 130,
+                      "createdAt": "2026-10-01T09:30:00.000Z",
+                      "isMine": false,
+                      "userId": null,
+                      "userName": null,
+                      "recordedByName": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "הפקדה או משיכה על שמי",
+        "description": "- `deposit`: היתרה שלי והקופה עולות בסכום.\n- `withdraw` עם `isShared: false`: משיכה אישית, יורדת מהיתרה שלי.\n- `withdraw` עם `isShared: true`: הוצאה של הקבוצה, מתחלקת שווה בין כל החברים הפעילים.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "deposit",
+                      "withdraw"
+                    ]
+                  },
+                  "amount": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 1000000
+                  },
+                  "isShared": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "category": {
+                    "default": "general",
+                    "type": "string",
+                    "enum": [
+                      "meeting",
+                      "equipment",
+                      "general",
+                      "other"
+                    ]
+                  },
+                  "note": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "type",
+                  "amount"
+                ]
+              },
+              "example": {
+                "type": "withdraw",
+                "amount": 120,
+                "isShared": true,
+                "category": "meeting",
+                "note": "השכרת אולם למסיבה"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "התנועה נרשמה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transaction": {
+                      "$ref": "#/components/schemas/Transaction"
+                    }
+                  },
+                  "required": [
+                    "transaction"
+                  ]
+                },
+                "example": {
+                  "transaction": {
+                    "id": 12,
+                    "type": "deposit",
+                    "amount": 50,
+                    "isShared": false,
+                    "category": "meeting",
+                    "note": "גבייה למסיבת סוף שנה",
+                    "fundBalanceAfter": 130,
+                    "createdAt": "2026-10-01T09:30:00.000Z",
+                    "isMine": true,
+                    "userId": 1,
+                    "userName": "דנה לוי",
+                    "recordedByName": "דנה לוי"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/GroupClosed"
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/transactions/bulk": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "רישום מרוכז לכמה חברים (מנהל בלבד)",
+        "description": "המנהל רושם הפקדה או משיכה אישית לכל חבר, עם סכום שונה לכל אחד. משמש לגבייה מרוכזת ולאיפוס יתרה של חבר. נוצרת תנועה אחת לכל חבר, והכול נשמר יחד או לא נשמר בכלל.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "deposit",
+                      "withdraw"
+                    ]
+                  },
+                  "category": {
+                    "default": "general",
+                    "type": "string",
+                    "enum": [
+                      "meeting",
+                      "equipment",
+                      "general",
+                      "other"
+                    ]
+                  },
+                  "note": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "amount": {
+                          "type": "number",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 1000000
+                        }
+                      },
+                      "required": [
+                        "userId",
+                        "amount"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "items"
+                ]
+              },
+              "example": {
+                "type": "deposit",
+                "category": "meeting",
+                "note": "גבייה למסיבת סוף שנה",
+                "items": [
+                  {
+                    "userId": 1,
+                    "amount": 50
+                  },
+                  {
+                    "userId": 2,
+                    "amount": 30
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "התנועות נרשמו",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transactions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Transaction"
+                      }
+                    }
+                  },
+                  "required": [
+                    "transactions"
+                  ]
+                },
+                "example": {
+                  "transactions": [
+                    {
+                      "id": 12,
+                      "type": "deposit",
+                      "amount": 50,
+                      "isShared": false,
+                      "category": "meeting",
+                      "note": "גבייה למסיבת סוף שנה",
+                      "fundBalanceAfter": 130,
+                      "createdAt": "2026-10-01T09:30:00.000Z",
+                      "isMine": true,
+                      "userId": 1,
+                      "userName": "דנה לוי",
+                      "recordedByName": "דנה לוי"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "נתונים לא תקינים (VALIDATION_ERROR) או חבר שאינו פעיל בקבוצה (MEMBER_NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "MEMBER_NOT_FOUND",
+                    "message": "אחד או יותר מהחברים אינו חבר פעיל בקבוצה"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/GroupClosed"
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/transactions/{transactionId}": {
+      "patch": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "עריכת קטגוריה והערה של תנועה",
+        "description": "מנהל יכול לערוך כל תנועה, חבר רק תנועות שלו. אי אפשר לשנות סכום או סוג; טעות מתקנים בתנועה הפוכה.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה התנועה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "meeting",
+                      "equipment",
+                      "general",
+                      "other"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              },
+              "example": {
+                "category": "equipment",
+                "note": "קניית כדורים"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "התנועה עודכנה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transaction": {
+                      "$ref": "#/components/schemas/Transaction"
+                    }
+                  },
+                  "required": [
+                    "transaction"
+                  ]
+                },
+                "example": {
+                  "transaction": {
+                    "id": 12,
+                    "type": "deposit",
+                    "amount": 50,
+                    "isShared": false,
+                    "category": "equipment",
+                    "note": "קניית כדורים",
+                    "fundBalanceAfter": 130,
+                    "createdAt": "2026-10-01T09:30:00.000Z",
+                    "isMine": true,
+                    "userId": 1,
+                    "userName": "דנה לוי",
+                    "recordedByName": "דנה לוי"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "לא חבר בקבוצה, או חבר שמנסה לערוך תנועה של מישהו אחר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "NOT_YOUR_TRANSACTION",
+                    "message": "אפשר לערוך רק תנועות שלך"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "הקבוצה או התנועה לא קיימות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "TRANSACTION_NOT_FOUND",
+                    "message": "התנועה לא נמצאה"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/GroupClosed"
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/messages": {
+      "get": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "ההודעות שלי בקבוצה",
+        "description": "רק הודעות ששלחתי או שנשלחו אליי. `unreadCount` הוא מספר ההודעות שעוד לא פתחתי.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "box",
+            "in": "query",
+            "required": false,
+            "description": "inbox = שקיבלתי, sent = ששלחתי, all = הכול",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "inbox",
+                "sent"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "unreadOnly",
+            "in": "query",
+            "required": false,
+            "description": "רק הודעות שלא נקראו",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ההודעות, מהחדשה לישנה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "unreadCount": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Message"
+                      }
+                    }
+                  },
+                  "required": [
+                    "unreadCount",
+                    "items"
+                  ]
+                },
+                "example": {
+                  "unreadCount": 0,
+                  "items": [
+                    {
+                      "id": 4,
+                      "content": "שלום לכולם! אוספים 50 ש\"ח למסיבת סוף השנה.",
+                      "toAll": true,
+                      "createdAt": "2026-10-01T09:30:00.000Z",
+                      "direction": "sent",
+                      "sender": {
+                        "id": 1,
+                        "name": "דנה לוי"
+                      },
+                      "isRead": null,
+                      "recipients": [
+                        {
+                          "userId": 2,
+                          "name": "יוסי כהן",
+                          "readAt": null
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "שליחת הודעה",
+        "description": "- **מנהל** שולח `toAll: true`, או `recipientIds` עם החברים שבחר.\n- **חבר** שולח רק `content`, וההודעה נשלחת למנהל הקבוצה.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "toAll": {
+                    "type": "boolean"
+                  },
+                  "recipientIds": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    }
+                  }
+                },
+                "required": [
+                  "content"
+                ]
+              },
+              "example": {
+                "content": "שלום לכולם! אוספים 50 ש\"ח למסיבת סוף השנה.",
+                "toAll": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ההודעה נשלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "$ref": "#/components/schemas/Message"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                },
+                "example": {
+                  "message": {
+                    "id": 4,
+                    "content": "שלום לכולם! אוספים 50 ש\"ח למסיבת סוף השנה.",
+                    "toAll": true,
+                    "createdAt": "2026-10-01T09:30:00.000Z",
+                    "direction": "sent",
+                    "sender": {
+                      "id": 1,
+                      "name": "דנה לוי"
+                    },
+                    "isRead": null,
+                    "recipients": [
+                      {
+                        "userId": 2,
+                        "name": "יוסי כהן",
+                        "readAt": null
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "נתונים לא תקינים (VALIDATION_ERROR), מנהל שלא בחר נמענים (RECIPIENTS_REQUIRED) או נמען שאינו חבר פעיל (MEMBER_NOT_FOUND)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "RECIPIENTS_REQUIRED",
+                    "message": "יש לבחור נמענים או לשלוח לכולם"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "לא חבר בקבוצה, או חבר רגיל שניסה לבחור נמענים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "MANAGER_ONLY",
+                    "message": "חבר יכול לשלוח הודעות למנהל הקבוצה בלבד"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/GroupNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/GroupClosed"
+          }
+        }
+      }
+    },
+    "/api/groups/{groupId}/messages/{messageId}/read": {
+      "post": {
+        "tags": [
+          "Messages"
+        ],
+        "summary": "סימון הודעה שקיבלתי כנקראה",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הקבוצה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "description": "מזהה ההודעה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "ההודעה סומנה כנקראה"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "הקבוצה לא קיימת, או שההודעה לא נשלחה אליי",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": {
+                    "code": "MESSAGE_NOT_FOUND",
+                    "message": "ההודעה לא נמצאה"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
