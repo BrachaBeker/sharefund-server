@@ -28,8 +28,6 @@ services:
       # The address of the React site, for example https://my-client.onrender.com
       - key: CORS_ORIGIN
         sync: false
-      # Set to "true" (and choose SEED_DEMO_PASSWORD) to create demo users on start
+      # Set to "true" to create the demo users on start (see README)
       - key: SEED_DEMO_DATA
         value: "false"
-      - key: SEED_DEMO_PASSWORD
-        sync: false

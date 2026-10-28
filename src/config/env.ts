@@ -15,7 +15,6 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
-  SEED_DEMO_PASSWORD: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -43,5 +42,4 @@ export const env = {
     .filter(Boolean),
   bcryptRounds: data.BCRYPT_ROUNDS,
   seedDemoData: data.SEED_DEMO_DATA,
-  seedDemoPassword: data.SEED_DEMO_PASSWORD,
 };
